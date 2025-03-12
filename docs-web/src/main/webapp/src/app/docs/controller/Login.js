@@ -9,16 +9,20 @@ angular.module('docs').controller('Login', function(Restangular, $scope, $rootSc
   // Get the app configuration
   Restangular.one('app').get().then(function(data) {
     $rootScope.app = data;
+    $rootScope.app.guest_login = true; // 强制启用访客访问
   });
 
-  // Login as guest
   $scope.loginAsGuest = function() {
-    $scope.user = {
+    // 直接设置访客身份，绕过密码验证
+    $rootScope.userInfo = {
       username: 'guest',
-      password: ''
+      role: 'guest'
     };
-    $scope.login();
+  
+    // 直接跳转到主界面
+    $state.go('document.default');
   };
+  
   
   // Login
   $scope.login = function() {
