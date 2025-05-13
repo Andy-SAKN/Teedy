@@ -37,7 +37,7 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub_credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     script {
-                        docker.withRegistry('https://registry.hub.docker.com', "${DOCKER_USER}:${DOCKER_PASS}") {
+                        docker.withRegistry('https://index.docker.io/v1/', 'dockerhub_credentials') {
                             docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push()
                             docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push('latest')
                         }
@@ -45,6 +45,7 @@ pipeline {
                 }
             }
         }
+
 
 
         stage('Run containers') {
