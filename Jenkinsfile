@@ -36,13 +36,16 @@ pipeline {
         stage('Upload image') {
             steps {
                 script {
-                    docker.withRegistry('https://registry.hub.docker.com', DOCKER_HUB_CREDENTIALS) {
-                        docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push()
-                        docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push('latest')
-                    }
+                    sh """
+                        echo 'Csdn959926' | docker login -u 'sakn959' --password-stdin
+                        docker push sakn959/teedy:${DOCKER_TAG}
+                        docker tag sakn959/teedy:${DOCKER_TAG} sakn959/teedy:latest
+                        docker push sakn959/teedy:latest
+                    """
                 }
             }
         }
+
 
         stage('Run containers') {
             steps {
