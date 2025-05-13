@@ -35,14 +35,17 @@ pipeline {
 
         stage('Upload image') {
             steps {
-                script {
-                    docker.withRegistry('https://registry.hub.docker.com', DOCKER_HUB_CREDENTIALS) {
-                        docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push()
-                        docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push('latest')
+                withCredentials([usernamePassword(credentialsId: 'dockerhub_credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    script {
+                        docker.withRegistry('https://registry.hub.docker.com', "${DOCKER_USER}:${DOCKER_PASS}") {
+                            docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push()
+                            docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push('latest')
+                        }
                     }
                 }
             }
         }
+
 
         stage('Run containers') {
             steps {
