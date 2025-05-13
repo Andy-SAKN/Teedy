@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         // Jenkins 中设置的 Docker Hub 凭据 ID
-        DOCKER_HUB_CREDENTIALS = credentials('teedy513')
+        DOCKER_HUB_CREDENTIALS = credentials('dockerhub_credentials')
 
         // Docker Hub 镜像名（格式：用户名/仓库）
         DOCKER_IMAGE = 'sakn959/teedy'
@@ -36,14 +36,13 @@ pipeline {
         stage('Upload image') {
             steps {
                 script {
-                    docker.withRegistry('https://index.docker.io/v1/', DOCKER_HUB_CREDENTIALS) {
+                    docker.withRegistry('https://registry.hub.docker.com', DOCKER_HUB_CREDENTIALS) {
                         docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push()
                         docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push('latest')
                     }
                 }
             }
         }
-
 
         stage('Run containers') {
             steps {
