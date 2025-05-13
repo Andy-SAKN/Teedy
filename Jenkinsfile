@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         // Jenkins 中设置的 Docker Hub 凭据 ID
-        DOCKER_HUB_CREDENTIALS = credentials('teedy513')
+        DOCKER_HUB_CREDENTIALS = credentials('dockerhub_credentials')
 
         // Docker Hub 镜像名（格式：用户名/仓库）
         DOCKER_IMAGE = 'sakn959/teedy'
