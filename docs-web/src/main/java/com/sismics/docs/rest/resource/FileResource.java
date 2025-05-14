@@ -179,17 +179,90 @@ public class FileResource extends BaseResource {
         }
     }
 
+    // 检查文件是否为 PDF、Word 或 PPT
+    private boolean isSupportedFile(java.nio.file.Path file) {
+        String fileName = file.getFileName().toString().toLowerCase();
+        return fileName.endsWith(".pdf") || fileName.endsWith(".doc") || fileName.endsWith(".ppt")|| fileName.endsWith(".pptx")|| fileName.endsWith(".txt");
+    }
 
+    // 从 Word 文件提取文本内容
+    private String extractTextFromWord(java.nio.file.Path wordFile) {
+        try (InputStream is = Files.newInputStream(wordFile)) {
+            org.apache.poi.xwpf.usermodel.XWPFDocument document = new org.apache.poi.xwpf.usermodel.XWPFDocument(is);
+            org.apache.poi.xwpf.extractor.XWPFWordExtractor extractor = new org.apache.poi.xwpf.extractor.XWPFWordExtractor(document);
+            return extractor.getText();
+        } catch (IOException e) {
+            throw new ServerException("WordProcessingError", "Error extracting text from Word file", e);
+        }
+    }
 
+    // 从 PPT 文件提取文本内容
+    private String extractTextFromPpt(java.nio.file.Path pptFile) {
+        try (InputStream is = Files.newInputStream(pptFile)) {
+            org.apache.poi.xslf.usermodel.XMLSlideShow ppt = new org.apache.poi.xslf.usermodel.XMLSlideShow(is);
+            StringBuilder text = new StringBuilder();
+            for (org.apache.poi.xslf.usermodel.XSLFSlide slide : ppt.getSlides()) {
+                text.append(slide.getTitle()).append("\n");
+                text.append(slide.getNotes()).append("\n");
+            }
+            return text.toString();
+        } catch (IOException e) {
+            throw new ServerException("PptProcessingError", "Error extracting text from PPT file", e);
+        }
+    }
 
+    // 从 PPTX 文件提取文本内容
+    private String extractTextFromPptx(java.nio.file.Path pptxFile) {
+        try (InputStream is = Files.newInputStream(pptxFile)) {
+            org.apache.poi.xslf.usermodel.XMLSlideShow pptx = new org.apache.poi.xslf.usermodel.XMLSlideShow(is);
+            StringBuilder text = new StringBuilder();
+            for (org.apache.poi.xslf.usermodel.XSLFSlide slide : pptx.getSlides()) {
+                if (slide.getTitle() != null) {
+                    text.append(slide.getTitle()).append("\n");
+                }
+                slide.getShapes().forEach(shape -> {
+                    if (shape instanceof org.apache.poi.xslf.usermodel.XSLFTextShape) {
+                        text.append(((org.apache.poi.xslf.usermodel.XSLFTextShape) shape).getText()).append("\n");
+                    }
+                });
+            }
+            return text.toString();
+        } catch (IOException e) {
+            throw new ServerException("PptxProcessingError", "Error extracting text from PPTX file", e);
+        }
+    }
+
+    // 从 TXT 文件提取文本内容
+    private String extractTextFromTxt(java.nio.file.Path txtFile) {
+        try {
+            return Files.readString(txtFile, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new ServerException("TxtProcessingError", "Error reading text from TXT file", e);
+        }
+    }
 
     private void processFileWithDeepSeek(java.nio.file.Path unencryptedFile) {
         try {
-            if (!isPdfFile(unencryptedFile)) {
+            if (!isSupportedFile(unencryptedFile)) {
                 return;
             }
 
-            String fileContent = extractTextFromPdf(unencryptedFile);
+            String fileContent;
+            String fileName = unencryptedFile.getFileName().toString().toLowerCase();
+            if (fileName.endsWith(".pdf")) {
+                fileContent = extractTextFromPdf(unencryptedFile);
+            } else if (fileName.endsWith(".doc")) {
+                fileContent = extractTextFromWord(unencryptedFile);
+            } else if (fileName.endsWith(".ppt")) {
+                fileContent = extractTextFromPpt(unencryptedFile);
+            } else if (fileName.endsWith(".pptx")) {
+                fileContent = extractTextFromPptx(unencryptedFile);
+            } else if (fileName.endsWith(".txt")) {
+                fileContent = extractTextFromTxt(unencryptedFile);
+            } else {
+                return; // 不支持的文件类型
+            }
+
             System.out.println("Extracted content length: " + fileContent.length());
 
             String apiUrl = "https://api.deepseek.com/v1/chat/completions"; // 确认正确的API端点
@@ -702,7 +775,11 @@ private void triggerFileDownload(java.nio.file.Path filePath) {
             ThreadLocalContext.get().addAsyncEvent(documentUpdatedAsyncEvent);
         }
         
-        // Always return OK
+
+
+
+
+               // Always return OK
         JsonObjectBuilder response = Json.createObjectBuilder()
                 .add("status", "ok");
         return Response.ok().entity(response.build()).build();
@@ -736,7 +813,7 @@ private void triggerFileDownload(java.nio.file.Path filePath) {
             @QueryParam("share") String shareId,
             @QueryParam("size") String size) {
         authenticate();
-        
+
         if (size != null && !Lists.newArrayList("web", "thumb", "content").contains(size)) {
             throw new ClientException("SizeError", "Size must be web, thumb or content");
         }
