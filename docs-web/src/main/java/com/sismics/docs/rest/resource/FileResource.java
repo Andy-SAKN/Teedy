@@ -235,13 +235,17 @@ public class FileResource extends BaseResource {
             }
 
             // 打印标签和摘要
-             System.out.println("1111111111111111提取的标签和摘要：");
+            System.out.println("提取的标签和摘要：");
             System.out.println("Tags: " + tags);
             System.out.println("Summary: " + summary);
 
-            
-
-             
+            // 保存到下载路径
+            String originalFileName = unencryptedFile.getFileName().toString();
+            String outputFileName = originalFileName + "_DeepSeekOutput.txt";
+            java.nio.file.Path downloadPath = Paths.get(System.getProperty("user.home"), "Downloads", outputFileName);
+            String outputContent = "Tags: " + tags + "\nSummary: " + summary;
+            Files.write(downloadPath, outputContent.getBytes(StandardCharsets.UTF_8));
+            System.out.println("结果已保存到: " + downloadPath);
 
         } catch (Exception e) {
             throw new ServerException("FileProcessingError", "DeepSeek处理失败: " + e.getMessage(), e);
