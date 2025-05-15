@@ -1,68 +1,35 @@
 pipeline {
     agent any
-
     environment {
-        // Jenkins 中设置的 Docker Hub 凭据 ID
-        DOCKER_HUB_CREDENTIALS = credentials('dockerhub_credentials')
-        DOCKER_HOST = 'unix:///var/run/docker.sock'  // 👈 强制使用本地 socket
-
-        // Docker Hub 镜像名（格式：用户名/仓库）
-        DOCKER_IMAGE = 'sakn959/teedy'
-
-        // 使用 Jenkins 的构建编号作为 tag
-        DOCKER_TAG = "${env.BUILD_NUMBER}"
+        DEPLOYMENT_NAME = "hello-node"  // 替换为你的部署名称
+        CONTAINER_NAME = "teedy"       // 替换为你的容器名称
+        IMAGE_NAME = "sakn959/teedy:latest"  // 替换为你的镜像名称
     }
-
     stages {
-        stage('Build') {
+        stage('Start Minikube') {
             steps {
-                // 克隆 Git 仓库并编译 WAR 文件
-                checkout scmGit(
-                    branches: [[name: '*/b-12212251']], // ← 指定你的分支
-                    extensions: [],
-                    userRemoteConfigs: [[url: 'https://github.com/Andy-SAKN/Teedy.git']]
-                )
-                sh 'mvn -B -DskipTests clean package'
+                sh '''
+                if ! minikube status | grep -q "Running"; then
+                    echo "Starting Minikube..."
+                    minikube start
+                else
+                    echo "Minikube already running."
+                fi
+                '''
             }
         }
-
-        stage('Building image') {
+        stage('Set Image') {
             steps {
-                script {
-                    docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}")
-                }
+                sh '''
+                echo "Setting image for deployment..."
+                kubectl set image deployment/${DEPLOYMENT_NAME} ${CONTAINER_NAME}=${IMAGE_NAME}
+                '''
             }
         }
-
-        stage('Upload image') {
+        stage('Verify') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub_credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    script {
-                        docker.withRegistry('https://index.docker.io/v1/', 'dockerhub_credentials') {
-                            docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push()
-                            docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push('latest')
-                        }
-                    }
-                }
-            }
-        }
-
-
-
-        stage('Run containers') {
-            steps {
-                script {
-                    def ports = [8082, 8083, 8084]
-                    for (port in ports) {
-                        sh "docker stop teedy-container-${port} || true"
-                        sh "docker rm teedy-container-${port} || true"
-                        docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").run(
-                            "--name teedy-container-${port} -d -p ${port}:8080"
-                        )
-                    }
-                    // 输出运行中的容器
-                    sh 'docker ps --filter "name=teedy-container"'
-                }
+                sh 'kubectl rollout status deployment/${DEPLOYMENT_NAME}'
+                sh 'kubectl get pods'
             }
         }
     }
